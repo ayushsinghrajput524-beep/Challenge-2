@@ -1,0 +1,3 @@
+CSS + JavaScript marks → CGPA calculator you can open in any browser. It supports any number of subjects (add/remove), custom max marks per subject, shows total marks, percentage, and CGPA with three methods (CBSE = % / 9.5, divide-by-10, or a custom divisor). It includes input validation and nice UI.
+
+Copy the code below into a file named marks-to-cgpa.html and open it in
