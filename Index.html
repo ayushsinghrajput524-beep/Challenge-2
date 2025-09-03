@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Marks → CGPA Calculator</title>
+  <style>
+    :root{
+      --bg:#f6f8fb; --card:#ffffff; --muted:#6b7280; --accent:#2563eb;
+      --success:#059669; --danger:#ef4444;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    body{
+      margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+      background:linear-gradient(180deg, var(--bg), #eef2ff);
+      padding:24px;
+    }
+    .container{
+      width:100%; max-width:900px; background:var(--card); border-radius:14px; box-shadow:0 10px 30px rgba(2,6,23,0.08);
+      padding:22px;
+    }
+    h1{ margin:0 0 8px 0; font-size:20px; }
+    p.lead{ margin:0 0 18px 0; color:var(--muted); font-size:14px; }
+    .grid{ display:grid; gap:12px; grid-template-columns: 1fr 320px; }
+    @media (max-width:820px){ .grid{ grid-template-columns:1fr; } .side{ order:-1; } }
+    .card{ background:linear-gradient(180deg, #fff, #fbfdff); padding:14px; border-radius:10px; border:1px solid rgba(15,23,42,0.04); }
+    .subjects{ display:flex; flex-direction:column; gap:10px; max-height:480px; overflow:auto; padding:6px; }
+    .subject-row{ display:flex; gap:8px; align-items:center; }
+    .subject-row input[type="text"]{ width:160px; }
+    input, select, button{
+      font:inherit; padding:8px 10px; border-radius:8px; border:1px solid #e6edf6; outline: none;
+      box-sizing:border-box;
+    }
+    input[type="number"]{ width:110px; }
+    label{ font-size:13px; color:var(--muted); display:block; margin-bottom:6px; }
+    .controls{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+    .btn{ cursor:pointer; background:var(--accent); color:white; border:none; padding:8px 12px; border-radius:8px; }
+    .btn.ghost{ background:transparent; color:var(--accent); border:1px solid rgba(37,99,235,0.12); }
+    .btn.warn{ background:var(--danger); }
+    .result{ display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
+    .result .line{ display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:8px; background:#f8fafc; }
+    .muted{ color:var(--muted); font-size:13px; }
+    .small{ font-size:13px; color:var(--muted); }
+    .add-area{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+    .footer{ margin-top:14px; font-size:13px; color:var(--muted); }
+    .danger-text{ color:var(--danger); font-weight:600; }
+  </style>
+</head>
+<body>
+  <div class="container" role="main">
+    <h1>Marks → CGPA Calculator</h1>
+    <p class="lead">Add subjects with obtained & maximum marks. Choose a CGPA method and press <strong>Calculate</strong>.</p>
+
+    <div class="grid">
+      <!-- Left: Inputs -->
+      <div>
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px;">
+            <strong>Subjects</strong>
+            <div class="small">You can add or remove rows</div>
+          </div>
+
+          <div class="subjects" id="subjectsList" aria-live="polite"></div>
+
+          <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+            <button id="addSubjectBtn" class="btn ghost">＋ Add Subject</button>
+            <button id="removeSubjectBtn" class="btn ghost" title="Remove last subject">− Remove Last</button>
+            <button id="resetBtn" class="btn" style="background:#374151">Reset All</button>
+          </div>
+
+          <hr style="margin:12px 0; border:none; height:1px; background:#eef2ff">
+
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <div style="min-width:180px;">
+              <label for="cgpaMethod">CGPA Method</label>
+              <select id="cgpaMethod" aria-label="CGPA calculation method">
+                <option value="cbse">CBSE: percentage ÷ 9.5</option>
+                <option value="divide10">Divide by 10</option>
+                <option value="custom">Custom divisor</option>
+              </select>
+            </div>
+
+            <div id="customDivWrap" style="display:none; min-width:140px;">
+              <label for="customDiv">Custom divisor</label>
+              <input id="customDiv" type="number" min="1" step="0.01" value="9.5" />
+            </div>
+
+            <div style="flex:1; min-width:180px;">
+              <label for="precision">Display precision</label>
+              <select id="precision">
+                <option value="2">2 decimals</option>
+                <option value="1">1 decimal</option>
+                <option value="0">No decimals</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="controls" style="margin-top:12px;">
+            <button id="calcBtn" class="btn">Calculate</button>
+            <button id="exportBtn" class="btn ghost">Export CSV</button>
+            <button id="exampleBtn" class="btn ghost">Load Example</button>
+          </div>
+
+          <div class="footer">
+            Tip: use <em>Add Subject</em> to enter as many subjects as needed. Max marks default to 100.
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Results -->
+      <div class="side">
+        <div class="card">
+          <strong>Results</strong>
+          <div class="result" id="resultsArea" style="margin-top:10px;">
+            <div class="line"><div class="muted">Total Obtained</div><div id="totalObt" class="bold">—</div></div>
+            <div class="line"><div class="muted">Total Max</div><div id="totalMax" class="bold">—</div></div>
+            <div class="line"><div class="muted">Percentage</div><div id="percentage" class="bold">—</div></div>
+            <div class="line"><div class="muted">CGPA</div><div id="cgpa" class="bold">—</div></div>
+            <div class="line"><div class="muted">Grade</div><div id="grade" class="bold">—</div></div>
+          </div>
+
+          <div style="margin-top:12px;">
+            <label for="notes">Notes / Explanation</label>
+            <textarea id="notes" rows="5" style="width:100%; resize:vertical; font:inherit; padding:8px; border-radius:8px;">Results will show here after calculation.</textarea>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====== Utilities ======
+    function el(tag, attrs = {}, children = []) {
+      const e = document.createElement(tag);
+      for (const k in attrs) {
+        if (k === 'class') e.className = attrs[k];
+        else if (k === 'text') e.textContent = attrs[k];
+        else e.setAttribute(k, attrs[k]);
+      }
+      (Array.isArray(children) ? children : [children]).forEach(c => { if (typeof c === 'string') e.append(c); else if (c) e.appendChild(c); });
+      return e;
+    }
+
+    // ====== State ======
+    const subjectsList = document.getElementById('subjectsList');
+    const addBtn = document.getElementById('addSubjectBtn');
+    const removeBtn = document.getElementById('removeSubjectBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const calcBtn = document.getElementById('calcBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const exampleBtn = document.getElementById('exampleBtn');
+
+    const cgpaMethodEl = document.getElementById('cgpaMethod');
+    const customDivWrap = document.getElementById('customDivWrap');
+    const customDivEl = document.getElementById('customDiv');
+    const precisionEl = document.getElementById('precision');
+
+    const totalObtEl = document.getElementById('totalObt');
+    const totalMaxEl = document.getElementById('totalMax');
+    const percentageEl = document.getElementById('percentage');
+    const cgpaEl = document.getElementById('cgpa');
+    const gradeEl = document.getElementById('grade');
+    const notesEl = document.getElementById('notes');
+
+    // Start with 5 empty subjects
+    function createSubjectRow(name = '', obt = '', max = '100') {
+      const row = el('div', { class: 'subject-row' });
+      const nameInput = el('input', { type: 'text', placeholder: 'Subject (optional)', title: 'Subject name' });
+      nameInput.value = name;
+      const obtInput = el('input', { type: 'number', min: 0, step: '0.01', title: 'Obtained marks' });
+      obtInput.value = obt;
+      const maxInput = el('input', { type: 'number', min: 1, step: '0.01', title: 'Max marks (default 100)' });
+      maxInput.value = max;
+
+      const removeOne = el('button', { class: 'btn ghost', title: 'Remove this subject' });
+      removeOne.textContent = 'Remove';
+      removeOne.addEventListener('click', () => {
+        row.remove();
+      });
+
+      row.appendChild(nameInput);
+      row.appendChild(obtInput);
+      row.appendChild(maxInput);
+      row.appendChild(removeOne);
+
+      return { row, nameInput, obtInput, maxInput };
+    }
+
+    function addSubject(name, obt, max) {
+      const { row } = createSubjectRow(name, obt, max);
+      subjectsList.appendChild(row);
+      // focus the obtained input of the new row
+      const inputs = row.querySelectorAll('input');
+      if (inputs.length >= 2) inputs[1].focus();
+    }
+
+    function clearSubjects() {
+      subjectsList.innerHTML = '';
+    }
+
+    function loadExample() {
+      clearSubjects();
+      addSubject('Maths', '92', '100');
+      addSubject('Physics', '85', '100');
+      addSubject('Chemistry', '79', '100');
+      addSubject('English', '88', '100');
+      addSubject('Computer', '95', '100');
+    }
+
+    // initial
+    for (let i=0;i<5;i++) addSubject();
+
+    // ====== Event handlers ======
+    addBtn.addEventListener('click', (e) => { e.preventDefault(); addSubject(); });
+    removeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const rows = subjectsList.children;
+      if (rows.length) rows[rows.length-1].remove();
+    });
+
+    resetBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!confirm('Reset all subjects and results?')) return;
+      clearSubjects();
+      for (let i=0;i<5;i++) addSubject();
+      totalObtEl.textContent = '—';
+      totalMaxEl.textContent = '—';
+      percentageEl.textContent = '—';
+      cgpaEl.textContent = '—';
+      gradeEl.textContent = '—';
+      notesEl.value = 'Results will show here after calculation.';
+    });
+
+    exampleBtn.addEventListener('click', (e) => { e.preventDefault(); loadExample(); });
+
+    cgpaMethodEl.addEventListener('change', () => {
+      customDivWrap.style.display = cgpaMethodEl.value === 'custom' ? 'block' : 'none';
+    });
+
+    calcBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      calculate();
+    });
+
+    exportBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      exportCSV();
+    });
+
+    // ====== Core calculation ======
+    function toNumber(v) {
+      const n = parseFloat(String(v).trim());
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function calculate() {
+      const rows = Array.from(subjectsList.children);
+      if (!rows.length) {
+        alert('Add at least one subject.');
+        return;
+      }
+
+      let totalObt = 0;
+      let totalMax = 0;
+      const details = [];
+
+      for (const r of rows) {
+        const inputs = r.querySelectorAll('input');
+        if (inputs.length < 3) continue;
+        const name = inputs[0].value.trim() || 'Subject';
+        const obt = toNumber(inputs[1].value);
+        const max = toNumber(inputs[2].value) || 0;
+
+        // validation
+        if (max <= 0) {
+          alert('Please enter a valid max marks (>0) for all subjects.');
+          inputs[2].focus();
+          return;
+        }
+        if (obt < 0 || obt > max) {
+          if (!confirm(`Obtained marks for "${name}" is ${obt} but max is ${max}. Continue?`)) {
+            inputs[1].focus();
+            return;
+          }
+        }
+
+        totalObt += obt;
+        totalMax += max;
+        details.push({ name, obt, max, percent: (max>0 ? (obt / max) * 100 : 0) });
+      }
+
+      if (totalMax === 0) {
+        alert('Total maximum marks is 0. Please correct inputs.');
+        return;
+      }
+
+      const percentage = (totalObt / totalMax) * 100;
+
+      // CGPA method
+      let divisor;
+      if (cgpaMethodEl.value === 'cbse') divisor = 9.5;
+      else if (cgpaMethodEl.value === 'divide10') divisor = 10;
+      else {
+        divisor = toNumber(customDivEl.value);
+        if (divisor <= 0) {
+          alert('Custom divisor must be a positive number.');
+          customDivEl.focus();
+          return;
+        }
+      }
+      const cgpaVal = percentage / divisor;
+
+      const precision = parseInt(precisionEl.value, 10) || 2;
+      const fmt = (n) => Number.isFinite(n) ? n.toFixed(precision) : '—';
+
+      totalObtEl.textContent = fmt(totalObt);
+      totalMaxEl.textContent = fmt(totalMax);
+      percentageEl.textContent = fmt(percentage) + ' %';
+      cgpaEl.textContent = fmt(cgpaVal);
+
+      gradeEl.textContent = gradeFromCgpa(cgpaVal, divisor);
+
+      buildNotes(details, percentage, cgpaVal, divisor);
+    }
+
+    // Grade mapping for 10-scale (generic)
+    function gradeFromCgpa(cgpa, divisor) {
+      // Convert cgpa to equivalent percentage for a more generic grade mapping
+      const percentage = cgpa * divisor;
+      if (percentage >= 90) return 'A+ (Excellent)';
+      if (percentage >= 80) return 'A (Very Good)';
+      if (percentage >= 70) return 'B (Good)';
+      if (percentage >= 60) return 'C (Average)';
+      if (percentage >= 50) return 'D (Below Average)';
+      return 'E/F (Needs Improvement)';
+    }
+
+    function buildNotes(details, percentage, cgpaVal, divisor) {
+      const precision = parseInt(precisionEl.value, 10) || 2;
+      const p = (n) => Number.isFinite(n) ? n.toFixed(precision) : '—';
+      let text = `Calculated on ${new Date().toLocaleString()}.\n\n`;
+      text += `Per-subject breakdown:\n`;
+      details.forEach((d,i) => {
+        text += `${i+1}. ${d.name}: ${p(d.obt)} / ${p(d.max)} → ${p(d.percent)}%\n`;
+      });
+      text += `\nOverall Percentage: ${p(percentage)}%\n`;
+      text += `CGPA (using divisor ${divisor}): ${p(cgpaVal)}\n`;
+      text += `Grade: ${gradeFromCgpa(cgpaVal, divisor)}\n`;
+      text += `\nNotes:\n• CBSE uses percentage / 9.5 as CGPA (approximation used here).\n• If your board uses a different conversion, choose "Custom divisor".\n• Export CSV to share these numbers.`;
+      notesEl.value = text;
+    }
+
+    // ====== Export CSV ======
+    function exportCSV() {
+      const rows = Array.from(subjectsList.children);
+      if (!rows.length) return alert('No subjects to export.');
+
+      const lines = [['Subject','Obtained','Max','%']];
+      for (const r of rows) {
+        const inputs = r.querySelectorAll('input');
+        const name = (inputs[0]?.value || '').replace(/"/g,'""');
+        const obt = inputs[1]?.value || '';
+        const max = inputs[2]?.value || '';
+        const percent = (parseFloat(obt) && parseFloat(max)) ? ((parseFloat(obt)/parseFloat(max))*100).toFixed(2) : '';
+        lines.push([name, obt, max, percent]);
+      }
+
+      // totals
+      const totalObt = parseFloat(totalObtEl.textContent) || '';
+      const totalMax = parseFloat(totalMaxEl.textContent) || '';
+      const per = percentageEl.textContent || '';
+      const cg = cgpaEl.textContent || '';
+
+      lines.push([]);
+      lines.push(['Total', totalObt, totalMax, per]);
+      lines.push(['CGPA', cg]);
+
+      const csv = lines.map(r => r.map(c => `"${String(c)}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'marks_export.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // ====== Accessibility: allow Enter to add new subject when focused on subject fields ======
+    subjectsList.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' && ev.target.tagName === 'INPUT') {
+        ev.preventDefault();
+        addSubject();
+      }
+    });
+
+    // initial example
+    loadExample();
+  </script>
+</body>
+</html>
